@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Volume2, Trash2, Download, Upload, Search, AlertTriangle, Calendar, Zap } from "lucide-react";
+import { Volume2, Trash2, Download, Upload, Search, AlertTriangle, Calendar, Zap, Languages } from "lucide-react";
 import { speakText } from "../utils/dictLookup";
 import { exportAllBackup, getTodayStr } from "../utils/storage";
 
@@ -11,6 +11,7 @@ export default function VocabManagerView({
   onToggleMistake,
   onImportBackup,
   onGoCram,
+  onInspectSentence,
 }) {
   const [query, setQuery] = useState("");
   const [filterMode, setFilterMode] = useState("all"); // all | yesterday | mistakes | phrases | paper:<id>
@@ -166,7 +167,25 @@ export default function VocabManagerView({
                     </span>
                   </div>
                   <div className="vrc-cn">{item.meaningSummary}</div>
-                  {item.contextSentence && <div className="vrc-ctx">例句：{item.contextSentence}</div>}
+                  {item.contextSentence && (
+                    <button
+                      type="button"
+                      className="vrc-ctx-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onInspectSentence?.(
+                          item.contextSentence,
+                          e.currentTarget.getBoundingClientRect(),
+                          `${item.sourcePaperLabel || ""} · ${item.sourceSection || ""}`
+                        );
+                      }}
+                    >
+                      <span className="vrc-ctx-en">例句：{item.contextSentence}</span>
+                      <span className="ctx-zh-hint">
+                        <Languages size={12} /> 点看中文与成分
+                      </span>
+                    </button>
+                  )}
                 </div>
                 <div className="vrc-btns">
                   <button

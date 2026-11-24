@@ -156,6 +156,16 @@ export default function App() {
     });
   };
 
+  const handleInspectSentence = (text, rect, sectionLabel) => {
+    if (!text) return;
+    setPopup({
+      mode: "selection",
+      text,
+      rect,
+      sectionLabel,
+    });
+  };
+
   const handleToggleSaveWord = ({
     key,
     word,
@@ -418,6 +428,7 @@ export default function App() {
             voiceAccent={settings.voiceAccent}
             onWordClick={handleWordClick}
             onTextSelect={handleTextSelect}
+            onInspectSentence={handleInspectSentence}
             onRemoveVocab={handleRemoveVocab}
             onGoCramPaper={(paperId) => {
               setCramLaunch({ deck: "my-paper", paperFilter: paperId });
@@ -454,6 +465,7 @@ export default function App() {
               setCramLaunch({ deck, paperFilter: filter });
               setTab("cram");
             }}
+            onInspectSentence={handleInspectSentence}
           />
         )}
       </main>

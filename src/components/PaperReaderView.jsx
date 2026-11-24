@@ -48,11 +48,12 @@ export default function PaperReaderView({
   voiceAccent,
   onWordClick,
   onTextSelect,
+  onInspectSentence,
   onRemoveVocab,
   onGoCramPaper,
 }) {
   const [activeModule, setActiveModule] = useState("reading");
-  const [showExplain, setShowExplain] = useState(true);
+  const [showExplain, setShowExplain] = useState(false);
   const [showBilingual, setShowBilingual] = useState(false);
   const [openParaZh, setOpenParaZh] = useState({});
   const [liveParaZh, setLiveParaZh] = useState({});
@@ -218,11 +219,11 @@ export default function PaperReaderView({
                   <span>{showBilingual ? "✓ 已开全文译文" : "双语对照译文"}</span>
                 </button>
                 <button
-                  className="btn-toggle-explain"
+                  className={`btn-toggle-explain ${showExplain ? "is-on" : ""}`}
                   onClick={() => setShowExplain((v) => !v)}
                 >
                   {showExplain ? <EyeOff size={15} /> : <Eye size={15} />}
-                  <span>{showExplain ? "隐藏解析/中文" : "显示解析/中文"}</span>
+                  <span>{showExplain ? "✓ 已开题目解析" : "显示题目解析"}</span>
                 </button>
               </div>
             </div>
@@ -700,6 +701,22 @@ export default function PaperReaderView({
                       </div>
                     </div>
                     <div className="pvi-meaning">{item.meaningSummary}</div>
+                    {item.contextSentence && (
+                      <button
+                        className="pvi-ctx-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onInspectSentence?.(
+                            item.contextSentence,
+                            e.currentTarget.getBoundingClientRect(),
+                            item.sourceSection
+                          );
+                        }}
+                      >
+                        <span className="pvi-ctx-text">例句：{item.contextSentence}</span>
+                        <span className="ctx-zh-hint">看中文</span>
+                      </button>
+                    )}
                     <div className="pvi-meta">{item.sourceSection}</div>
                   </div>
                 ))}
