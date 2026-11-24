@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import InteractiveText from "./InteractiveText";
 import HlsAudioPlayer from "./HlsAudioPlayer";
-import { speakText } from "../utils/dictLookup";
+import { fetchLiveZh, lookupSentenceTrans, speakText } from "../utils/dictLookup";
 
 const MODULES = [
   { key: "reading", label: "仔细阅读", icon: BookOpen, badge: "核心" },
@@ -44,6 +44,7 @@ export default function PaperReaderView({
   vocabBook,
   savedWordsSet,
   lemmas,
+  translations,
   voiceAccent,
   onWordClick,
   onTextSelect,
@@ -52,8 +53,49 @@ export default function PaperReaderView({
 }) {
   const [activeModule, setActiveModule] = useState("reading");
   const [showExplain, setShowExplain] = useState(true);
+  const [showBilingual, setShowBilingual] = useState(false);
+  const [openParaZh, setOpenParaZh] = useState({});
+  const [liveParaZh, setLiveParaZh] = useState({});
   const [showMatchingBody, setShowMatchingBody] = useState(false);
   const [userAnswers, setUserAnswers] = useState({});
+
+  const toggleParaZh = async (key, paraText) => {
+    const willOpen = !openParaZh[key];
+    setOpenParaZh((prev) => ({ ...prev, [key]: willOpen }));
+    if (willOpen && !lookupSentenceTrans(paraText, translations) && !liveParaZh[key]) {
+      const zh = await fetchLiveZh(paraText);
+      if (zh) setLiveParaZh((prev) => ({ ...prev, [key]: zh }));
+    }
+  };
+
+  const renderParaWithTrans = (para, key, sectionLabel) => {
+    const paraZh = lookupSentenceTrans(para, translations) || liveParaZh[key];
+    const isVisible = showBilingual || openParaZh[key];
+    return (
+      <div key={key} className="para-block">
+        <p className="passage-para">
+          <InteractiveText
+            text={para}
+            savedWordsSet={savedWordsSet}
+            lemmas={lemmas}
+            onWordClick={onWordClick}
+            onTextSelect={onTextSelect}
+            sectionLabel={sectionLabel}
+          />
+          <button
+            className={`para-trans-btn ${isVisible ? "active" : ""}`}
+            title="查看/收起本段中文意思"
+            onClick={() => toggleParaZh(key, para)}
+          >
+            译
+          </button>
+        </p>
+        {isVisible && (
+          <div className="para-zh-box">{paraZh || "正在获取本段中文翻译..."}</div>
+        )}
+      </div>
+    );
+  };
 
   const currentPaper = useMemo(
     () => papers.find((p) => p.id === selectedPaperId) || papers[0],
@@ -168,13 +210,21 @@ export default function PaperReaderView({
                   💡 操作提示：<strong>单击任意英文单词</strong>即查音标释义并高亮收藏；<strong>鼠标划选词组或整句</strong>可拆解搭配并对照下方解析。
                 </p>
               </div>
-              <button
-                className="btn-toggle-explain"
-                onClick={() => setShowExplain((v) => !v)}
-              >
-                {showExplain ? <EyeOff size={15} /> : <Eye size={15} />}
-                <span>{showExplain ? "隐藏解析/中文" : "显示解析/中文"}</span>
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  className={`btn-toggle-explain ${showBilingual ? "is-on" : ""}`}
+                  onClick={() => setShowBilingual((v) => !v)}
+                >
+                  <span>{showBilingual ? "✓ 已开全文译文" : "双语对照译文"}</span>
+                </button>
+                <button
+                  className="btn-toggle-explain"
+                  onClick={() => setShowExplain((v) => !v)}
+                >
+                  {showExplain ? <EyeOff size={15} /> : <Eye size={15} />}
+                  <span>{showExplain ? "隐藏解析/中文" : "显示解析/中文"}</span>
+                </button>
+              </div>
             </div>
 
             <div className="module-tabs">
@@ -207,18 +257,9 @@ export default function PaperReaderView({
                     </div>
 
                     <div className="passage-box">
-                      {splitParagraphs(grp.passage).map((para, idx) => (
-                        <p key={idx} className="passage-para">
-                          <InteractiveText
-                            text={para}
-                            savedWordsSet={savedWordsSet}
-                            lemmas={lemmas}
-                            onWordClick={onWordClick}
-                            onTextSelect={onTextSelect}
-                            sectionLabel={`仔细阅读 ${grp.title}`}
-                          />
-                        </p>
-                      ))}
+                      {splitParagraphs(grp.passage).map((para, idx) =>
+                        renderParaWithTrans(para, `read_${pIdx}_${idx}`, `仔细阅读 ${grp.title}`)
+                      )}
                     </div>
 
                     <div className="questions-list">
@@ -342,18 +383,9 @@ export default function PaperReaderView({
                 </div>
 
                 <div className="passage-box">
-                  {splitParagraphs(clozePassage).map((para, idx) => (
-                    <p key={idx} className="passage-para">
-                      <InteractiveText
-                        text={para}
-                        savedWordsSet={savedWordsSet}
-                        lemmas={lemmas}
-                        onWordClick={onWordClick}
-                        onTextSelect={onTextSelect}
-                        sectionLabel="选词填空原文"
-                      />
-                    </p>
-                  ))}
+                  {splitParagraphs(clozePassage).map((para, idx) =>
+                    renderParaWithTrans(para, `cloze_${idx}`, "选词填空原文")
+                  )}
                 </div>
 
                 <div className="questions-list">
@@ -512,18 +544,9 @@ export default function PaperReaderView({
                         高分范文（可直接划词收藏作文高级词汇/模板句）：
                       </div>
                       <div className="passage-box">
-                        {splitParagraphs(currentPaper.subjective.writing.model).map((para, idx) => (
-                          <p key={idx} className="passage-para">
-                            <InteractiveText
-                              text={para}
-                              savedWordsSet={savedWordsSet}
-                              lemmas={lemmas}
-                              onWordClick={onWordClick}
-                              onTextSelect={onTextSelect}
-                              sectionLabel="写作范文"
-                            />
-                          </p>
-                        ))}
+                        {splitParagraphs(currentPaper.subjective.writing.model).map((para, idx) =>
+                          renderParaWithTrans(para, `writing_${idx}`, "写作范文")
+                        )}
                       </div>
                     </div>
                   </div>
@@ -591,18 +614,9 @@ export default function PaperReaderView({
                 {showMatchingBody && (
                   <>
                     <div className="passage-box">
-                      {splitParagraphs(matchingPassage).map((para, idx) => (
-                        <p key={idx} className="passage-para">
-                          <InteractiveText
-                            text={para}
-                            savedWordsSet={savedWordsSet}
-                            lemmas={lemmas}
-                            onWordClick={onWordClick}
-                            onTextSelect={onTextSelect}
-                            sectionLabel="长篇阅读"
-                          />
-                        </p>
-                      ))}
+                      {splitParagraphs(matchingPassage).map((para, idx) =>
+                        renderParaWithTrans(para, `match_${idx}`, "长篇阅读")
+                      )}
                     </div>
                     <div className="questions-list">
                       {matchingQuestions.map((q) => (

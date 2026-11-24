@@ -108,6 +108,58 @@ function speakWithSpeechSynthesis(text, accent) {
   }
 }
 
+const liveZhCache = new Map();
+
+export async function fetchLiveZh(text) {
+  const clean = (text || "").replace(/^(?:P\d+|[A-Z]\))\s+/, "").replace(/\s+/g, " ").trim().slice(0, 600);
+  if (!clean) return "";
+  if (liveZhCache.has(clean)) return liveZhCache.get(clean);
+
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean.slice(0, 480))}&langpair=en|zh-CN&de=cet4lab@example.com`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const zh = data?.responseData?.translatedText || "";
+      if (zh && !/MYMEMORY WARNING/i.test(zh)) {
+        liveZhCache.set(clean, zh.trim());
+        return zh.trim();
+      }
+    }
+  } catch {}
+
+  try {
+    const res = await fetch(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(clean)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const zh = (data?.[0] || []).map((x) => x[0]).join("").trim();
+      if (zh) {
+        liveZhCache.set(clean, zh);
+        return zh;
+      }
+    }
+  } catch {}
+  return "";
+}
+
+export function lookupSentenceTrans(text, translations) {
+  if (!text || !translations) return "";
+  const norm = text.replace(/\s+/g, " ").trim();
+  if (translations[norm]) return translations[norm];
+  const stripped = norm.replace(/^(?:P\d+|[A-Z]\))\s+/, "").trim();
+  if (translations[stripped]) return translations[stripped];
+  // Fuzzy match if sentence was clipped by P1 prefix or trailing punctuation
+  for (const [k, v] of Object.entries(translations)) {
+    if (k.length >= 12 && (norm === k || k.replace(/^P\d+\s+/, "") === stripped)) {
+      return v;
+    }
+  }
+  return "";
+}
+
 export function analyzeSelection(selectedText, dict, lemmas) {
   const words = (selectedText.match(/[A-Za-z]+(?:[-'][A-Za-z]+)*/g) || []);
   const breakdown = [];

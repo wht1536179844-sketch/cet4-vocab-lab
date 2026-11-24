@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Zap,
@@ -36,6 +36,8 @@ export default function App() {
   const [cet4Syllabus, setCet4Syllabus] = useState([]);
   const [dict, setDict] = useState({});
   const [lemmas, setLemmas] = useState({});
+  const [translations, setTranslations] = useState({});
+  const justSelectedRef = useRef(false);
 
   const [tab, setTab] = useState("reader"); // "reader" | "cram" | "vocab"
   const [selectedPaperId, setSelectedPaperId] = useState("2026-06-1");
@@ -53,12 +55,13 @@ export default function App() {
     let alive = true;
     async function init() {
       try {
-        const [pRes, cRes, sRes, dRes, lRes] = await Promise.all([
+        const [pRes, cRes, sRes, dRes, lRes, tRes] = await Promise.all([
           fetch("./data/papers.json").then((r) => r.json()),
           fetch("./data/cet4_core.json").then((r) => r.json()),
           fetch("./data/cet4_syllabus.json").then((r) => r.json()),
           fetch("./data/dict.json").then((r) => r.json()),
           fetch("./data/lemmas.json").then((r) => r.json()),
+          fetch("./data/translations.json").then((r) => r.json()).catch(() => ({})),
         ]);
         if (!alive) return;
         setPapers(pRes);
@@ -66,6 +69,7 @@ export default function App() {
         setCet4Syllabus(sRes);
         setDict(dRes);
         setLemmas(lRes);
+        setTranslations(tRes || {});
         if (pRes.length > 0 && !pRes.find((p) => p.id === "2026-06-1")) {
           setSelectedPaperId(pRes[0].id);
         }
@@ -82,9 +86,15 @@ export default function App() {
     };
   }, []);
 
-  // Close popover when clicking outside
+  // Close popover when clicking outside, but don't kill a selection popup right after mouseup
   useEffect(() => {
-    const onGlobalClick = () => setPopup(null);
+    const onGlobalClick = () => {
+      if (justSelectedRef.current) {
+        justSelectedRef.current = false;
+        return;
+      }
+      setPopup(null);
+    };
     window.addEventListener("click", onGlobalClick);
     return () => window.removeEventListener("click", onGlobalClick);
   }, []);
@@ -134,6 +144,10 @@ export default function App() {
   };
 
   const handleTextSelect = (text, rect, sectionLabel) => {
+    justSelectedRef.current = true;
+    setTimeout(() => {
+      justSelectedRef.current = false;
+    }, 250);
     setPopup({
       mode: "selection",
       text,
@@ -322,7 +336,7 @@ export default function App() {
         <div className="brand">
           <div className="brand-badge">CET-4</div>
           <div>
-            <h1>四级真题划词背词工坊</h1>
+            <h1>四级划词工坊</h1>
             <span>2026年6月起点 · 含2025全年9套真题</span>
           </div>
         </div>
@@ -400,6 +414,7 @@ export default function App() {
             vocabBook={vocabBook}
             savedWordsSet={savedWordsSet}
             lemmas={lemmas}
+            translations={translations}
             voiceAccent={settings.voiceAccent}
             onWordClick={handleWordClick}
             onTextSelect={handleTextSelect}
@@ -447,6 +462,7 @@ export default function App() {
         popup={popup}
         dict={dict}
         lemmas={lemmas}
+        translations={translations}
         vocabBook={vocabBook}
         autoSpeak={settings.autoSpeak}
         voiceAccent={settings.voiceAccent}
@@ -454,6 +470,31 @@ export default function App() {
         onToggleSaveWord={handleToggleSaveWord}
         onSavePhrase={handleSavePhrase}
       />
+
+      {/* Mobile Fixed Bottom Navigation (iPhone 15 Pro Max thumb-friendly) */}
+      <nav className="mobile-bottom-nav" aria-label="移动端主导航">
+        <button
+          className={`mb-tab ${tab === "reader" ? "active" : ""}`}
+          onClick={() => setTab("reader")}
+        >
+          <BookOpen size={19} />
+          <span>真题划词</span>
+        </button>
+        <button
+          className={`mb-tab ${tab === "cram" ? "active" : ""}`}
+          onClick={() => setTab("cram")}
+        >
+          <Zap size={19} />
+          <span>备考速刷</span>
+        </button>
+        <button
+          className={`mb-tab ${tab === "vocab" ? "active" : ""}`}
+          onClick={() => setTab("vocab")}
+        >
+          <Bookmark size={19} />
+          <span>词本 ({Object.keys(vocabBook).length})</span>
+        </button>
+      </nav>
 
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
     </div>
